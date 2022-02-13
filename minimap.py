@@ -3,6 +3,7 @@ from io import BytesIO
 from PIL.ImageQt import ImageQt
 
 from PyQt5 import uic
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
@@ -35,20 +36,40 @@ class MyWidget(QMainWindow):
 
     def initUi(self):
         self.coordinates = toponym_coodrinates.split(" ")
-        self.delta = "0.005"
+        self.deltas = ["0.005"] * 2
+        float_coordinates = [float(x) for x in self.coordinates]
+        self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
+                        90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
         self.map_params = {
             "ll": ",".join(self.coordinates),
-            "spn": ",".join([self.delta, self.delta]),
+            "spn": ','.join(self.deltas),
             'size': '650,450',
             "l": "map"}
-        self.pixmap = QPixmap.fromImage(self.get_image())
-        self.label.setPixmap(self.pixmap)
+        self.update_image()
 
     def get_image(self):
         response = requests.get(map_api_server, params=self.map_params)
         # self.current_img = ImageQt(Image.open(BytesIO(response.content)))
         # return self.current_img
         return ImageQt(Image.open(BytesIO(response.content)))
+
+    def update_image(self):
+        self.pixmap = QPixmap.fromImage(self.get_image())
+        self.label.setPixmap(self.pixmap)
+
+    def change_zoom(self, plus):
+        for i in range(2):
+            self.deltas[i] = str(min(max(float(self.deltas[i]) * (2 if plus else 0.5), 0.00125), self.borders[i]))[:7]
+        # self.map_params['spn'] = ",".join([str(min(self.borders[0] * 2, float(self.delta))),
+        #                                    str(min(self.borders[1] * 2, float(self.delta)))])
+        self.map_params['spn'] = ','.join(self.deltas)
+        self.update_image()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_PageUp:
+            self.change_zoom(True)
+        elif event.key() == Qt.Key_PageDown:
+            self.change_zoom(False)
 
 
 def except_hook(cls, exception, traceback):
