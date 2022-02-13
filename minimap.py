@@ -36,19 +36,23 @@ class MyWidget(QMainWindow):
 
     def initUi(self):
         self.coordinates = toponym_coodrinates.split(" ")
-        self.deltas = ["0.005"] * 2
+        self.deltas = ["0.005", '0.0025']
         float_coordinates = [float(x) for x in self.coordinates]
         self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
                         90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
         self.map_params = {
             "ll": ",".join(self.coordinates),
             "spn": ','.join(self.deltas),
-            'size': '650,450',
+            'size': '450,450',
             "l": "map"}
         self.update_image()
 
     def get_image(self):
         response = requests.get(map_api_server, params=self.map_params)
+        if not response:
+            print("Ошибка выполнения запроса:")
+            print(self.map_params)
+            print("Http статус:", response.status_code, "(", response.reason, ")")
         # self.current_img = ImageQt(Image.open(BytesIO(response.content)))
         # return self.current_img
         return ImageQt(Image.open(BytesIO(response.content)))
@@ -57,9 +61,30 @@ class MyWidget(QMainWindow):
         self.pixmap = QPixmap.fromImage(self.get_image())
         self.label.setPixmap(self.pixmap)
 
+    def change_coordinates(self, direction):
+        if direction == 'right':
+            self.coordinates[0] = str(min(float(self.coordinates[0]) + float(self.deltas[0]),
+                                          179 - float(self.deltas[0]) / 2))[:15]
+        elif direction == 'left':
+            self.coordinates[0] = str(max(-179.0 + float(self.deltas[0]) / 2,
+                                          float(self.coordinates[0]) - float(self.deltas[0])))[:15]
+            # self.coordinates[0] = str(float(self.coordinates[0]) - float(self.deltas[0]))[:15]
+        if direction == 'up':
+            self.coordinates[1] = str(min(float(self.coordinates[1]) + float(self.deltas[1]),
+                                          89 - float(self.deltas[1]) / 2))[:15]
+        elif direction == 'down':
+            self.coordinates[1] = str(max(-89.0 + float(self.deltas[1]) / 2,
+                                          float(self.coordinates[1]) - float(self.deltas[1])))[:15]
+        self.map_params['ll'] = ",".join(self.coordinates)
+        float_coordinates = [float(x) for x in self.coordinates]
+        self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
+                        90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
+        self.update_image()
+
     def change_zoom(self, plus):
         for i in range(2):
-            self.deltas[i] = str(min(max(float(self.deltas[i]) * (2 if plus else 0.5), 0.00125), self.borders[i]))[:7]
+            self.deltas[i] = str(min(max(float(self.deltas[i]) * (2 if plus else 0.5), 0.00125),
+                                     min(self.borders * 2) / (i + 1)))[:7]
         # self.map_params['spn'] = ",".join([str(min(self.borders[0] * 2, float(self.delta))),
         #                                    str(min(self.borders[1] * 2, float(self.delta)))])
         self.map_params['spn'] = ','.join(self.deltas)
@@ -70,6 +95,14 @@ class MyWidget(QMainWindow):
             self.change_zoom(True)
         elif event.key() == Qt.Key_PageDown:
             self.change_zoom(False)
+        elif event.key() == Qt.Key_Right:
+            self.change_coordinates('right')
+        elif event.key() == Qt.Key_Left:
+            self.change_coordinates('left')
+        elif event.key() == Qt.Key_Up:
+            self.change_coordinates('up')
+        elif event.key() == Qt.Key_Down:
+            self.change_coordinates('down')
 
 
 def except_hook(cls, exception, traceback):
