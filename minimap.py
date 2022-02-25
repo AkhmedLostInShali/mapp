@@ -32,6 +32,10 @@ class MyWidget(QMainWindow):
     def __init__(self):
         super(MyWidget, self).__init__()
         uic.loadUi('mapp.ui', self)
+        self.mapButton.clicked.connect(self.set_map)
+        self.satButton.clicked.connect(self.set_sat)
+        self.hybridButton.clicked.connect(self.set_hybrid)
+        # self.modeBox.currentTextChanged.connect(self.change_mode)
         self.initUi()
 
     def initUi(self):
@@ -44,8 +48,29 @@ class MyWidget(QMainWindow):
             "ll": ",".join(self.coordinates),
             "spn": ','.join(self.deltas),
             'size': '450,450',
-            "l": "map"}
+            "l": "sat"}
         self.update_image()
+
+    def set_map(self):
+        self.map_params['l'] = 'map'
+        self.update_image()
+
+    def set_sat(self):
+        self.map_params['l'] = 'sat'
+        self.update_image()
+
+    def set_hybrid(self):
+        self.map_params['l'] = 'sat,skl'
+        self.update_image()
+
+    # def change_mode(self):
+    #     if self.modeBox.currentText() == 'map':
+    #         self.map_params['l'] = 'map'
+    #     elif self.modeBox.currentText() == 'satellite':
+    #         self.map_params['l'] = 'sat'
+    #     elif self.modeBox.currentText() == 'hybrid':
+    #         self.map_params['l'] = 'sat,skl'
+    #     self.update_image()
 
     def get_image(self):
         response = requests.get(map_api_server, params=self.map_params)
@@ -55,7 +80,7 @@ class MyWidget(QMainWindow):
             print("Http статус:", response.status_code, "(", response.reason, ")")
         # self.current_img = ImageQt(Image.open(BytesIO(response.content)))
         # return self.current_img
-        return ImageQt(Image.open(BytesIO(response.content)))
+        return ImageQt(Image.open(BytesIO(response.content))).copy()
 
     def update_image(self):
         self.pixmap = QPixmap.fromImage(self.get_image())
