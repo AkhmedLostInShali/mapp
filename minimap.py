@@ -60,8 +60,10 @@ class MyWidget(QMainWindow):
     def search_geocode(self):
         self.searchBar.clearFocus()
         self.geocoder_params['geocode'] = self.searchBar.text()
-        response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
-        coodrinates = response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]["Point"]["pos"]
+        json_response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
+        toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+        self.statusBar.showMessage(toponym["metaDataProperty"]["GeocoderMetaData"]["text"])
+        coodrinates = toponym["Point"]["pos"]
         self.coordinates = coodrinates.split(" ")
         float_coordinates = [float(x) for x in self.coordinates]
         self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
@@ -72,6 +74,7 @@ class MyWidget(QMainWindow):
 
     def refresh_search(self):
         self.map_params.pop('pt')
+        self.statusBar.clearMessage()
         self.update_image()
 
     def set_map(self):

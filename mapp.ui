@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>454</width>
-    <height>517</height>
+    <width>451</width>
+    <height>518</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -140,9 +140,14 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>454</width>
+     <width>451</width>
      <height>21</height>
     </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusBar">
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(126, 226, 138);</string>
    </property>
   </widget>
  </widget>
