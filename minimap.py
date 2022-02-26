@@ -32,6 +32,7 @@ class MyWidget(QMainWindow):
     def __init__(self):
         super(MyWidget, self).__init__()
         uic.loadUi('mapp.ui', self)
+        self.post_code = ''
         self.mapButton.clicked.connect(self.set_map)
         self.satButton.clicked.connect(self.set_sat)
         self.hybridButton.clicked.connect(self.set_hybrid)
@@ -62,7 +63,14 @@ class MyWidget(QMainWindow):
         self.geocoder_params['geocode'] = self.searchBar.text()
         json_response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
         toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-        self.statusBar.showMessage(toponym["metaDataProperty"]["GeocoderMetaData"]["text"])
+        metadata = toponym["metaDataProperty"]["GeocoderMetaData"]
+        if self.mailBox.isChecked():
+            if 'postal_code' in metadata['Address'].keys():
+                self.statusBar.showMessage(metadata["text"] + ' ' + metadata['Address']['postal_code'])
+            else:
+                self.statusBar.showMessage(metadata["text"] + ' ' + 'postal code not found')
+        else:
+            self.statusBar.showMessage(metadata["text"])
         coodrinates = toponym["Point"]["pos"]
         self.coordinates = coodrinates.split(" ")
         float_coordinates = [float(x) for x in self.coordinates]
