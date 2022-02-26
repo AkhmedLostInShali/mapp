@@ -32,12 +32,13 @@ class MyWidget(QMainWindow):
     def __init__(self):
         super(MyWidget, self).__init__()
         uic.loadUi('mapp.ui', self)
-        self.post_code = ''
+        self.address = ('', '')
         self.mapButton.clicked.connect(self.set_map)
         self.satButton.clicked.connect(self.set_sat)
         self.hybridButton.clicked.connect(self.set_hybrid)
         self.refreshButton.clicked.connect(self.refresh_search)
         self.searchBar.editingFinished.connect(self.search_geocode)
+        self.mailBox.stateChanged.connect(self.update_statusbar)
         # self.modeBox.currentTextChanged.connect(self.change_mode)
         self.initUi()
 
@@ -64,13 +65,9 @@ class MyWidget(QMainWindow):
         json_response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
         toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
         metadata = toponym["metaDataProperty"]["GeocoderMetaData"]
-        if self.mailBox.isChecked():
-            if 'postal_code' in metadata['Address'].keys():
-                self.statusBar.showMessage(metadata["text"] + ' ' + metadata['Address']['postal_code'])
-            else:
-                self.statusBar.showMessage(metadata["text"] + ' ' + 'postal code not found')
-        else:
-            self.statusBar.showMessage(metadata["text"])
+        self.address = (metadata["text"],
+                        metadata['Address']['postal_code'] if 'postal_code' in metadata['Address'].keys() else '(n/f)')
+        self.update_statusbar()
         coodrinates = toponym["Point"]["pos"]
         self.coordinates = coodrinates.split(" ")
         float_coordinates = [float(x) for x in self.coordinates]
@@ -81,9 +78,17 @@ class MyWidget(QMainWindow):
         self.update_image()
 
     def refresh_search(self):
-        self.map_params.pop('pt')
+        if 'pt' in self.map_params.keys():
+            self.map_params.pop('pt')
         self.statusBar.clearMessage()
+        self.address = ('', '')
         self.update_image()
+
+    def update_statusbar(self):
+        if self.mailBox.isChecked():
+            self.statusBar.showMessage(' '.join(self.address))
+        else:
+            self.statusBar.showMessage(self.address[0])
 
     def set_map(self):
         self.map_params['l'] = 'map'
