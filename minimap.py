@@ -17,13 +17,13 @@ else:
 
 geocoder_api_server = "http://geocode-maps.yandex.ru/1.x/"
 
-geocoder_params = {"apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
-                   "geocode": toponym_to_find, "format": "json"}
-
-response = requests.get(geocoder_api_server, params=geocoder_params)
-json_response = response.json()
-toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-toponym_coodrinates = toponym["Point"]["pos"]
+# geocoder_params = {"apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
+#                    "geocode": toponym_to_find, "format": "json"}
+#
+# response = requests.get(geocoder_api_server, params=geocoder_params)
+# json_response = response.json()
+# toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+# toponym_coodrinates = toponym["Point"]["pos"]
 
 map_api_server = "http://static-maps.yandex.ru/1.x/"
 
@@ -35,11 +35,16 @@ class MyWidget(QMainWindow):
         self.mapButton.clicked.connect(self.set_map)
         self.satButton.clicked.connect(self.set_sat)
         self.hybridButton.clicked.connect(self.set_hybrid)
+        self.searchBar.editingFinished.connect(self.search_geocode)
         # self.modeBox.currentTextChanged.connect(self.change_mode)
         self.initUi()
 
     def initUi(self):
-        self.coordinates = toponym_coodrinates.split(" ")
+        self.geocoder_params = {"apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
+                                "geocode": toponym_to_find, "format": "json"}
+        response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
+        coodrinates = response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]["Point"]["pos"]
+        self.coordinates = coodrinates.split(" ")
         self.deltas = ["0.005", '0.0025']
         float_coordinates = [float(x) for x in self.coordinates]
         self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
@@ -49,6 +54,19 @@ class MyWidget(QMainWindow):
             "spn": ','.join(self.deltas),
             'size': '450,450',
             "l": "sat"}
+        self.update_image()
+
+    def search_geocode(self):
+        self.searchBar.clearFocus()
+        self.geocoder_params['geocode'] = self.searchBar.text()
+        response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
+        coodrinates = response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]["Point"]["pos"]
+        self.coordinates = coodrinates.split(" ")
+        float_coordinates = [float(x) for x in self.coordinates]
+        self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
+                        90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
+        self.map_params['ll'] = ",".join(self.coordinates)
+        self.map_params['pt'] = ",".join(self.coordinates) + ",pm2rdm"
         self.update_image()
 
     def set_map(self):
