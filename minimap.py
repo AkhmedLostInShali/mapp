@@ -35,6 +35,7 @@ class MyWidget(QMainWindow):
         self.mapButton.clicked.connect(self.set_map)
         self.satButton.clicked.connect(self.set_sat)
         self.hybridButton.clicked.connect(self.set_hybrid)
+        self.refreshButton.clicked.connect(self.refresh_search)
         self.searchBar.editingFinished.connect(self.search_geocode)
         # self.modeBox.currentTextChanged.connect(self.change_mode)
         self.initUi()
@@ -67,6 +68,10 @@ class MyWidget(QMainWindow):
                         90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
         self.map_params['ll'] = ",".join(self.coordinates)
         self.map_params['pt'] = ",".join(self.coordinates) + ",pm2rdm"
+        self.update_image()
+
+    def refresh_search(self):
+        self.map_params.pop('pt')
         self.update_image()
 
     def set_map(self):
