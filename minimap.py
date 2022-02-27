@@ -17,15 +17,9 @@ else:
 
 geocoder_api_server = "http://geocode-maps.yandex.ru/1.x/"
 
-# geocoder_params = {"apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
-#                    "geocode": toponym_to_find, "format": "json"}
-#
-# response = requests.get(geocoder_api_server, params=geocoder_params)
-# json_response = response.json()
-# toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-# toponym_coodrinates = toponym["Point"]["pos"]
-
 map_api_server = "http://static-maps.yandex.ru/1.x/"
+
+modes = {'map': 'map', 'satellite': 'sat', 'hybrid': 'sat,skl', 'traffic': 'map,trf,skl'}
 
 
 class MyWidget(QMainWindow):
@@ -33,13 +27,12 @@ class MyWidget(QMainWindow):
         super(MyWidget, self).__init__()
         uic.loadUi('mapp.ui', self)
         self.address = ('', '')
-        self.mapButton.clicked.connect(self.set_map)
-        self.satButton.clicked.connect(self.set_sat)
-        self.hybridButton.clicked.connect(self.set_hybrid)
+        self.deltas = ["0.005", '0.0025']
+        self.lon_deformation = 1.95
         self.refreshButton.clicked.connect(self.refresh_search)
         self.searchBar.editingFinished.connect(self.search_geocode)
         self.mailBox.stateChanged.connect(self.update_statusbar)
-        # self.modeBox.currentTextChanged.connect(self.change_mode)
+        self.modeBox.currentTextChanged.connect(self.change_mode)
         self.initUi()
 
     def initUi(self):
@@ -48,7 +41,6 @@ class MyWidget(QMainWindow):
         response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
         coodrinates = response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]["Point"]["pos"]
         self.coordinates = coodrinates.split(" ")
-        self.deltas = ["0.005", '0.0025']
         float_coordinates = [float(x) for x in self.coordinates]
         self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
                         90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
@@ -56,7 +48,7 @@ class MyWidget(QMainWindow):
             "ll": ",".join(self.coordinates),
             "spn": ','.join(self.deltas),
             'size': '450,450',
-            "l": "sat"}
+            "l": "map"}
         self.update_image()
 
     def search_geocode(self):
@@ -71,11 +63,22 @@ class MyWidget(QMainWindow):
         coodrinates = toponym["Point"]["pos"]
         self.coordinates = coodrinates.split(" ")
         float_coordinates = [float(x) for x in self.coordinates]
-        self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
-                        90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
+        self.borders = [180 - abs(float_coordinates[0]),
+                        90 - abs(float_coordinates[1])]
         self.map_params['ll'] = ",".join(self.coordinates)
         self.map_params['pt'] = ",".join(self.coordinates) + ",pm2rdm"
         self.update_image()
+
+    def click_geocode(self, lon_lat):
+        self.searchBar.clearFocus()
+        self.geocoder_params['geocode'] = lon_lat
+        json_response = requests.get(geocoder_api_server, params=self.geocoder_params).json()
+        toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+        metadata = toponym["metaDataProperty"]["GeocoderMetaData"]
+        self.address = (metadata["text"],
+                        metadata['Address']['postal_code'] if 'postal_code' in metadata['Address'].keys() else '(n/f)')
+        self.update_statusbar()
+        self.map_params['pt'] = lon_lat + ",pm2dbm"
 
     def refresh_search(self):
         if 'pt' in self.map_params.keys():
@@ -90,26 +93,9 @@ class MyWidget(QMainWindow):
         else:
             self.statusBar.showMessage(self.address[0])
 
-    def set_map(self):
-        self.map_params['l'] = 'map'
+    def change_mode(self):
+        self.map_params['l'] = modes[self.modeBox.currentText()]
         self.update_image()
-
-    def set_sat(self):
-        self.map_params['l'] = 'sat'
-        self.update_image()
-
-    def set_hybrid(self):
-        self.map_params['l'] = 'sat,skl'
-        self.update_image()
-
-    # def change_mode(self):
-    #     if self.modeBox.currentText() == 'map':
-    #         self.map_params['l'] = 'map'
-    #     elif self.modeBox.currentText() == 'satellite':
-    #         self.map_params['l'] = 'sat'
-    #     elif self.modeBox.currentText() == 'hybrid':
-    #         self.map_params['l'] = 'sat,skl'
-    #     self.update_image()
 
     def get_image(self):
         response = requests.get(map_api_server, params=self.map_params)
@@ -141,18 +127,32 @@ class MyWidget(QMainWindow):
                                           float(self.coordinates[1]) - float(self.deltas[1])))[:15]
         self.map_params['ll'] = ",".join(self.coordinates)
         float_coordinates = [float(x) for x in self.coordinates]
-        self.borders = [180 - (float_coordinates[0] if float_coordinates[0] > 0 else -float_coordinates[0]),
-                        90 - (float_coordinates[1] if float_coordinates[1] > 0 else -float_coordinates[1])]
+        self.borders = [180 - abs(float_coordinates[0]),
+                        90 - abs(float_coordinates[1])]
         self.update_image()
 
     def change_zoom(self, plus):
         for i in range(2):
-            self.deltas[i] = str(min(max(float(self.deltas[i]) * (2 if plus else 0.5), 0.00125),
-                                     min(self.borders * 2) / (i + 1)))[:7]
-        # self.map_params['spn'] = ",".join([str(min(self.borders[0] * 2, float(self.delta))),
-        #                                    str(min(self.borders[1] * 2, float(self.delta)))])
+            self.deltas[i] = str(max(float(self.deltas[i]) * (2 if plus else 0.5), 0.00125 / (i + 1)))[:7]
+        if float(self.deltas[0]) >= self.borders[0]:
+            self.deltas = [str(round(self.borders[0], 8)), str(round(self.borders[0] / 2, 8))]
+            self.lon_deformation = 1.19
+        elif float(self.deltas[1]) >= self.borders[1]:
+            self.deltas = [str(round(self.borders[1] * 2, 8)), str(round(self.borders[1], 8))]
+            self.lon_deformation = 1.19
         self.map_params['spn'] = ','.join(self.deltas)
         self.update_image()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and 39 < event.y() < 491:
+            x, y = event.x(), event.y() - 40
+            lat_deformation = 3.9 + (abs(round(float(self.coordinates[1]), 8))
+                                     ** 2) * (-0.0006 + abs(float(self.coordinates[1][:3])) / 1200000)
+            shift = (round((x - 225) / 450 * float(self.deltas[0]), 8) * self.lon_deformation,
+                     round(-(y - 225) / 450 * float(self.deltas[1]) * lat_deformation, 8))
+            pt_coordinates = [str(round(float(self.coordinates[i]) + shift[i], 10)) for i in range(2)]
+            self.click_geocode(','.join(pt_coordinates))
+            self.update_image()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_PageUp:
